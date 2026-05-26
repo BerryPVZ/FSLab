@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fruit Shelter Lab - Physics Builder</title>
+  <style>
+    :root {
+      --bg: #151923;
+      --panel: #202735;
+      --panel2: #2d3648;
+      --text: #f4f6fb;
+      --muted: #aeb8c9;
+      --accent: #ffd35c;
+      --line: rgba(255,255,255,.13);
+      --bad: #673331;
+      --good: #2e5936;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top, #293549, #11141c 68%);
+      overflow: hidden;
+    }
+
+    #app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 326px 1fr;
+    }
+
+    aside {
+      background: linear-gradient(180deg, var(--panel), #171c27);
+      border-right: 1px solid var(--line);
+      padding: 14px;
+      overflow-y: auto;
+    }
+
+    h1 { margin: 0 0 4px; font-size: 22px; }
+    .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; line-height: 1.35; }
+
+    .section {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.045);
+      border-radius: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .section h2 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .75px;
+    }
+
+    button, select, input, textarea { font: inherit; }
+
+    button, .fileLabel {
+      border: 1px solid rgba(255,255,255,.14);
+      color: var(--text);
+      background: var(--panel2);
+      border-radius: 10px;
+      padding: 8px 9px;
+      cursor: pointer;
+      transition: transform .05s ease, background .15s ease;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 34px;
+      text-align: center;
+    }
+
+    button:hover, .fileLabel:hover { background: #3a4558; }
+    button:active, .fileLabel:active { transform: translateY(1px); }
+    button.primary { background: #69530f; border-color: #d9a929; }
+    button.danger { background: var(--bad); }
+    button.good { background: var(--good); }
+    button.active { outline: 2px solid var(--accent); }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .stack { display: grid; gap: 7px; }
+
+    label.small {
+      color: var(--muted);
+      font-size: 12px;
+      display: grid;
+      gap: 4px;
+    }
+
+    input[type="range"] { width: 100%; }
+    input[type="number"], select, textarea {
+      width: 100%;
+      color: var(--text);
+      background: #111722;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 7px;
+      outline: none;
+    }
+
+    textarea {
+      height: 92px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+    }
+
+    input[type="file"] { display: none; }
+
+    main {
+      position: relative;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+    }
+
+    #stageWrap {
+      position: relative;
+      width: min(100%, 1120px);
+      aspect-ratio: 16/9;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 20px 70px rgba(0,0,0,.42);
+      border: 1px solid rgba(255,255,255,.14);
+      background: #1e2a3a;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: auto;
+      background: #26384d;
+      cursor: crosshair;
+    }
+
+    #hud {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .pill {
+      background: rgba(0,0,0,.48);
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 999px;
+      padding: 8px 11px;
+      font-size: 13px;
+      backdrop-filter: blur(6px);
+    }
+
+    #toast {
+      position: absolute;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.75);
+      border: 1px solid rgba(255,255,255,.14);
+      padding: 9px 13px;
+      border-radius: 999px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
+      pointer-events: none;
+    }
+
+    #toast.show { opacity: 1; }
+    .hint { font-size: 11px; color: var(--muted); line-height: 1.35; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside>
+      <h1>Fruit Shelter Lab</h1>
+      <div class="sub">Multi-fruit shelter builder with same-folder PNG/MP3 defaults, custom images/music, acid rain, and arcade physics.</div>
+
+      <div class="section">
+        <h2>Mode</h2>
+        <div class="grid2">
+          <button id="editBtn" class="active">Editor</button>
+          <button id="testBtn" class="primary">Test Physics</button>
+        </div>
+        <div class="hint">Editor: click to place. Drag selected pieces. Q/E rotates. Delete removes selected. Fruits are no longer limited to one.</div>
+      </div>
+
+      <div class="section">
+        <h2>Tool</h2>
+        <div class="grid2">
+          <button class="tool active" data-tool="select">Select</button>
+          <button class="tool" data-tool="fruit">Fruit</button>
+          <button class="tool" data-tool="crate">Crate</button>
+          <button class="tool" data-tool="plank">Plank</button>
+          <button class="tool" data-tool="metal">Metal</button>
+          <button class="tool" data-tool="bumper">Bumper</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Selected / New Object</h2>
+        <div class="stack">
+          <label class="small">Width / Fruit Size <input id="widthInput" type="range" min="20" max="260" value="90"></label>
+          <label class="small">Height <input id="heightInput" type="range" min="14" max="150" value="50"></label>
+          <label class="small">Rotation <input id="rotInput" type="range" min="-180" max="180" value="0"></label>
+          <label class="small">Physics
+            <select id="bodyInput">
+              <option value="dynamic">Dynamic / Falls</option>
+              <option value="static">Static / Anchored</option>
+            </select>
+          </label>
+          <div class="grid2">
+            <button id="duplicateBtn">Duplicate</button>
+            <button id="deleteBtn" class="danger">Delete</button>
+          </div>
+          <button id="resetAssetBtn">Reset Selected Image</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Storm / Physics</h2>
+        <div class="stack">
+          <label class="small">Survive Seconds <input id="timeInput" type="number" min="5" max="180" value="25"></label>
+          <label class="small">Rain Amount <input id="rainInput" type="range" min="1" max="12" value="5"></label>
+          <label class="small">Wind <input id="windInput" type="range" min="-260" max="260" value="0"></label>
+          <label class="small">Gravity <input id="gravityInput" type="range" min="250" max="1600" value="850"></label>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Custom Assets</h2>
+        <div class="stack">
+          <label class="fileLabel">Upload Fruit PNG/GIF For Selected/New<input id="fruitUpload" type="file" accept="image/*"></label>
+          <label class="fileLabel">Upload Prop PNG/GIF For Selected/New<input id="propUpload" type="file" accept="image/*"></label>
+          <label class="fileLabel">Upload Background PNG/GIF<input id="bgUpload" type="file" accept="image/*"></label>
+          <label class="fileLabel">Upload Music MP3/Audio<input id="musicUpload" type="file" accept="audio/*"></label>
+          <button id="resetDefaultsBtn">Restore Built-In Assets</button>
+        </div>
+        <div class="hint">Default assets load from the same folder as this HTML: fruit_orange.png, fruit_apple.png, fruit_lemon.png, fruit_grape.png, crate.png, plank.png, metal.png, bumper.png, acid_drop.png, background.png, music.mp3, and optional SFX MP3s.</div>
+      </div>
+
+      <div class="section">
+        <h2>Level Data</h2>
+        <div class="grid2">
+          <button id="saveLocalBtn" class="good">Save</button>
+          <button id="loadLocalBtn">Load</button>
+          <button id="exportBtn">Export</button>
+          <button id="importBtn">Import</button>
+        </div>
+        <textarea id="levelText" placeholder="Exported level JSON appears here. Paste JSON here and press Import."></textarea>
+        <div class="grid2" style="margin-top:7px;">
+          <button id="sampleBtn">Load Sample</button>
+          <button id="clearBtn" class="danger">Clear</button>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <div id="stageWrap">
+        <canvas id="game" width="960" height="540"></canvas>
+        <div id="hud">
+          <div class="pill" id="modePill">Editor Mode</div>
+          <div class="pill" id="statusPill">Place multiple fruits. Build a shelter.</div>
+        </div>
+        <div id="toast"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const GROUND_Y = H - 58;
+
+    const ui = {
+      editBtn: document.getElementById('editBtn'),
+      testBtn: document.getElementById('testBtn'),
+      modePill: document.getElementById('modePill'),
+      statusPill: document.getElementById('statusPill'),
+      widthInput: document.getElementById('widthInput'),
+      heightInput: document.getElementById('heightInput'),
+      rotInput: document.getElementById('rotInput'),
+      bodyInput: document.getElementById('bodyInput'),
+      timeInput: document.getElementById('timeInput'),
+      rainInput: document.getElementById('rainInput'),
+      windInput: document.getElementById('windInput'),
+      gravityInput: document.getElementById('gravityInput'),
+      duplicateBtn: document.getElementById('duplicateBtn'),
+      deleteBtn: document.getElementById('deleteBtn'),
+      resetAssetBtn: document.getElementById('resetAssetBtn'),
+      resetDefaultsBtn: document.getElementById('resetDefaultsBtn'),
+      saveLocalBtn: document.getElementById('saveLocalBtn'),
+      loadLocalBtn: document.getElementById('loadLocalBtn'),
+      exportBtn: document.getElementById('exportBtn'),
+      importBtn: document.getElementById('importBtn'),
+      sampleBtn: document.getElementById('sampleBtn'),
+      clearBtn: document.getElementById('clearBtn'),
+      levelText: document.getElementById('levelText'),
+      toast: document.getElementById('toast'),
+      fruitUpload: document.getElementById('fruitUpload'),
+      propUpload: document.getElementById('propUpload'),
+      bgUpload: document.getElementById('bgUpload'),
+      musicUpload: document.getElementById('musicUpload')
+    };
+
+    let mode = 'edit';
+    let tool = 'select';
+    let selectedId = null;
+    let dragging = false;
+    let dragOffset = { x: 0, y: 0 };
+    let mouse = { x: 0, y: 0 };
+    let last = performance.now();
+    let elapsed = 0;
+    let cloudTimer = 0;
+    let resultText = '';
+    let drops = [];
+    let bodies = [];
+    let audioCtx = null;
+    let musicInterval = null;
+    let music = null;
+    let nextFruitImgSrc = '';
+    let nextPropImgSrc = '';
+    let fruitCounter = 0;
+
+    const imgCache = new Map();
+
+    let defaults = {
+      fruits: ['fruit_orange.png', 'fruit_apple.png', 'fruit_lemon.png', 'fruit_grape.png'],
+      crate: 'crate.png',
+      plank: 'plank.png',
+      metal: 'metal.png',
+      bumper: 'bumper.png',
+      acid: 'acid_drop.png',
+      bg: 'background.png',
+      music: 'music.mp3',
+      sfx: {
+        place: 'place.mp3',
+        delete: 'delete.mp3',
+        hurt: 'hurt.mp3',
+        bounce: 'bounce.mp3',
+        win: 'win.mp3',
+        lose: 'lose.mp3',
+        start: 'start.mp3'
+      }
+    };
+
+    let assets = {
+      bgSrc: '',
+      musicSrc: ''
+    };
+
+    let level = {
+      surviveSeconds: 25,
+      rainAmount: 5,
+      wind: 0,
+      gravity: 850,
+      objects: []
+    };
+
+    function uid() { return Math.random().toString(36).slice(2, 10); }
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    function degToRad(d) { return d * Math.PI / 180; }
+
+    function toast(msg) {
+      ui.toast.textContent = msg;
+      ui.toast.classList.add('show');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => ui.toast.classList.remove('show'), 1400);
+    }
+
+    function getImage(src) {
+      if (!src) return null;
+      if (imgCache.has(src)) return imgCache.get(src);
+      const img = new Image();
+      img.loaded = false;
+      img.failed = false;
+      img.onload = () => { img.loaded = true; };
+      img.onerror = () => { img.failed = true; };
+      img.src = src;
+      imgCache.set(src, img);
+      return img;
+    }
+
+    function defaultSrcFor(o) {
+      if (o.type === 'fruit') return defaults.fruits[o.skin % defaults.fruits.length] || defaults.fruits[0];
+      if (o.type === 'crate') return defaults.crate;
+      if (o.type === 'plank') return defaults.plank;
+      if (o.type === 'metal') return defaults.metal;
+      if (o.type === 'bumper') return defaults.bumper;
+      return '';
+    }
+
+    function objectImgSrc(o) {
+      return o.imgSrc || defaultSrcFor(o);
+    }
+
+    function selected() {
+      return level.objects.find(o => o.id === selectedId) || null;
+    }
+
+    function setTool(next) {
+      tool = next;
+      document.querySelectorAll('.tool').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+    }
+
+    document.querySelectorAll('.tool').forEach(btn => {
+      btn.addEventListener('click', () => setTool(btn.dataset.tool));
+    });
+
+    function makeObj(type, x, y) {
+      const base = {
+        id: uid(), type, x, y,
+        r: Number(ui.rotInput.value),
+        vx: 0, vy: 0, av: 0,
+        body: ui.bodyInput.value || 'dynamic',
+        mass: 1,
+        hp: 100,
+        imgSrc: ''
+      };
+      if (type === 'fruit') {
+        return { ...base, w: Number(ui.widthInput.value) || 58, h: Number(ui.widthInput.value) || 58, r: 0, hp: 3, body: 'dynamic', mass: .65, skin: fruitCounter++, imgSrc: nextFruitImgSrc || '' };
+      }
+      if (type === 'plank') return { ...base, w: 160, h: 28, mass: 1.2, imgSrc: nextPropImgSrc || '' };
+      if (type === 'metal') return { ...base, w: 140, h: 28, mass: 2.1, imgSrc: nextPropImgSrc || '' };
+      if (type === 'bumper') return { ...base, w: 62, h: 62, mass: .9, imgSrc: nextPropImgSrc || '' };
+      return { ...base, w: Number(ui.widthInput.value), h: Number(ui.heightInput.value), mass: 1, imgSrc: nextPropImgSrc || '' };
+    }
+
+    function syncInputsFromSelected() {
+      const s = selected();
+      if (!s) return;
+      ui.widthInput.value = clamp(s.w, 20, 260);
+      ui.heightInput.value = clamp(s.h, 14, 150);
+      ui.rotInput.value = clamp(s.r || 0, -180, 180);
+      ui.bodyInput.value = s.body || 'dynamic';
+    }
+
+    function applyInputsToSelected() {
+      const s = selected();
+      if (!s || mode !== 'edit') return;
+      if (s.type === 'fruit' || s.type === 'bumper') {
+        s.w = Number(ui.widthInput.value);
+        s.h = Number(ui.widthInput.value);
+      } else {
+        s.w = Number(ui.widthInput.value);
+        s.h = Number(ui.heightInput.value);
+        s.r = Number(ui.rotInput.value);
+      }
+      s.body = ui.bodyInput.value;
+      if (s.type === 'fruit') s.body = 'dynamic';
+    }
+
+    [ui.widthInput, ui.heightInput, ui.rotInput, ui.bodyInput].forEach(el => el.addEventListener('input', applyInputsToSelected));
+    ui.timeInput.addEventListener('input', () => level.surviveSeconds = Number(ui.timeInput.value));
+    ui.rainInput.addEventListener('input', () => level.rainAmount = Number(ui.rainInput.value));
+    ui.windInput.addEventListener('input', () => level.wind = Number(ui.windInput.value));
+    ui.gravityInput.addEventListener('input', () => level.gravity = Number(ui.gravityInput.value));
+
+    function pointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function pointInRotRect(px, py, o) {
+      const a = -degToRad(o.r || 0);
+      const dx = px - o.x, dy = py - o.y;
+      const lx = dx * Math.cos(a) - dy * Math.sin(a);
+      const ly = dx * Math.sin(a) + dy * Math.cos(a);
+      return Math.abs(lx) <= o.w / 2 && Math.abs(ly) <= o.h / 2;
+    }
+
+    function hitObject(x, y) {
+      for (let i = level.objects.length - 1; i >= 0; i--) {
+        const o = level.objects[i];
+        if (o.type === 'fruit' || o.type === 'bumper') {
+          if (Math.hypot(x - o.x, y - o.y) <= o.w / 2) return o;
+        } else if (pointInRotRect(x, y, o)) return o;
+      }
+      return null;
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      if (mode !== 'edit') return;
+      mouse = pointerPos(e);
+      if (tool === 'select') {
+        const hit = hitObject(mouse.x, mouse.y);
+        selectedId = hit ? hit.id : null;
+        if (hit) {
+          dragging = true;
+          dragOffset.x = mouse.x - hit.x;
+          dragOffset.y = mouse.y - hit.y;
+          syncInputsFromSelected();
+        }
+      } else {
+        const obj = makeObj(tool, mouse.x, mouse.y);
+        level.objects.push(obj);
+        selectedId = obj.id;
+        setTool('select');
+        syncInputsFromSelected();
+        playSfx('place');
+      }
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      mouse = pointerPos(e);
+      if (dragging && selected()) {
+        const s = selected();
+        s.x = clamp(mouse.x - dragOffset.x, 0, W);
+        s.y = clamp(mouse.y - dragOffset.y, 0, H);
+      }
+    });
+
+    window.addEventListener('mouseup', () => dragging = false);
+
+    window.addEventListener('keydown', e => {
+      if (mode !== 'edit') return;
+      const s = selected();
+      if (!s) return;
+      if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
+      if (e.key.toLowerCase() === 'q' && s.type !== 'fruit' && s.type !== 'bumper') { s.r = (s.r || 0) - 5; syncInputsFromSelected(); }
+      if (e.key.toLowerCase() === 'e' && s.type !== 'fruit' && s.type !== 'bumper') { s.r = (s.r || 0) + 5; syncInputsFromSelected(); }
+    });
+
+    function deleteSelected() {
+      if (!selectedId) return;
+      level.objects = level.objects.filter(o => o.id !== selectedId);
+      selectedId = null;
+      toast('Deleted');
+      playSfx('delete');
+    }
+
+    ui.deleteBtn.addEventListener('click', deleteSelected);
+
+    ui.duplicateBtn.addEventListener('click', () => {
+      const s = selected();
+      if (!s) return toast('Select something first');
+      const copy = JSON.parse(JSON.stringify(s));
+      copy.id = uid();
+      copy.x += 28; copy.y += 28;
+      if (copy.type === 'fruit' && copy.skin == null) copy.skin = fruitCounter++;
+      level.objects.push(copy);
+      selectedId = copy.id;
+      toast('Duplicated');
+      playSfx('place');
+    });
+
+    ui.resetAssetBtn.addEventListener('click', () => {
+      const s = selected();
+      if (s) { s.imgSrc = ''; toast('Selected image reset'); return; }
+      nextFruitImgSrc = '';
+      nextPropImgSrc = '';
+      toast('New object images reset');
+    });
+
+    ui.resetDefaultsBtn.addEventListener('click', () => {
+      assets.bgSrc = '';
+      assets.musicSrc = '';
+      nextFruitImgSrc = '';
+      nextPropImgSrc = '';
+      level.objects.forEach(o => o.imgSrc = '');
+      stopMusic();
+      music = null;
+      toast('Built-in assets restored');
+    });
+
+    function bodyAABB(o) {
+      if (o.type === 'fruit' || o.type === 'bumper') {
+        const r = o.w / 2;
+        return { minX: o.x-r, maxX: o.x+r, minY: o.y-r, maxY: o.y+r, cx: o.x, cy: o.y, hw: r, hh: r };
+      }
+      const a = degToRad(o.r || 0);
+      const hw = Math.abs(Math.cos(a)) * o.w / 2 + Math.abs(Math.sin(a)) * o.h / 2;
+      const hh = Math.abs(Math.sin(a)) * o.w / 2 + Math.abs(Math.cos(a)) * o.h / 2;
+      return { minX: o.x-hw, maxX: o.x+hw, minY: o.y-hh, maxY: o.y+hh, cx: o.x, cy: o.y, hw, hh };
+    }
+
+    function aabbOverlap(a, b) {
+      return a.minX < b.maxX && a.maxX > b.minX && a.minY < b.maxY && a.maxY > b.minY;
+    }
+
+    function integrateBodies(dt) {
+      const gravity = level.gravity || 850;
+      for (const b of bodies) {
+        if (b.body === 'static') continue;
+        b.vy += gravity * dt;
+        b.vx += (level.wind || 0) * dt * .08;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (b.type !== 'fruit' && b.type !== 'bumper') b.r += (b.av || 0) * dt;
+
+        const box = bodyAABB(b);
+        if (box.minX < 0) { b.x += -box.minX; b.vx = Math.abs(b.vx) * .25; }
+        if (box.maxX > W) { b.x -= box.maxX - W; b.vx = -Math.abs(b.vx) * .25; }
+        const box2 = bodyAABB(b);
+        if (box2.maxY > GROUND_Y) {
+          b.y -= box2.maxY - GROUND_Y;
+          b.vy = Math.abs(b.vy) > 70 ? -b.vy * .18 : 0;
+          b.vx *= .78;
+          b.av *= .72;
+        }
+        const box3 = bodyAABB(b);
+        if (box3.minY < 0) { b.y += -box3.minY; b.vy = Math.abs(b.vy) * .2; }
+      }
+
+      for (let step = 0; step < 3; step++) {
+        for (let i = 0; i < bodies.length; i++) {
+          for (let j = i + 1; j < bodies.length; j++) {
+            separateBodies(bodies[i], bodies[j]);
+          }
+        }
+      }
+    }
+
+    function separateBodies(a, b) {
+      if (a.body === 'static' && b.body === 'static') return;
+      const aa = bodyAABB(a), bb = bodyAABB(b);
+      if (!aabbOverlap(aa, bb)) return;
+      const overlapX = Math.min(aa.maxX - bb.minX, bb.maxX - aa.minX);
+      const overlapY = Math.min(aa.maxY - bb.minY, bb.maxY - aa.minY);
+      const sx = aa.cx < bb.cx ? -1 : 1;
+      const sy = aa.cy < bb.cy ? -1 : 1;
+      const aMove = a.body === 'static' ? 0 : (b.body === 'static' ? 1 : .5);
+      const bMove = b.body === 'static' ? 0 : (a.body === 'static' ? 1 : .5);
+
+      if (overlapX < overlapY) {
+        a.x += sx * overlapX * aMove;
+        b.x -= sx * overlapX * bMove;
+        const av = a.vx || 0, bv = b.vx || 0;
+        if (a.body !== 'static') a.vx = (bv - Math.abs(av) * sx) * .18;
+        if (b.body !== 'static') b.vx = (av + Math.abs(bv) * sx) * .18;
+      } else {
+        a.y += sy * overlapY * aMove;
+        b.y -= sy * overlapY * bMove;
+        const av = a.vy || 0, bv = b.vy || 0;
+        if (a.body !== 'static') a.vy = (bv - Math.abs(av) * sy) * .12;
+        if (b.body !== 'static') b.vy = (av + Math.abs(bv) * sy) * .12;
+        if (a.body !== 'static') a.vx *= .92;
+        if (b.body !== 'static') b.vx *= .92;
+      }
+    }
+
+    function spawnDrop() {
+      const r = 5 + Math.random() * 5;
+      drops.push({
+        x: Math.random() * W,
+        y: -20,
+        vx: level.wind * .25 + (Math.random() - .5) * 35,
+        vy: 150 + Math.random() * 95,
+        r,
+        life: 8,
+        hit: false
+      });
+    }
+
+    function dropHitsBody(d, o) {
+      if (o.type === 'fruit' || o.type === 'bumper') {
+        return Math.hypot(d.x - o.x, d.y - o.y) < d.r + o.w / 2;
+      }
+      const box = bodyAABB(o);
+      const cx = clamp(d.x, box.minX, box.maxX);
+      const cy = clamp(d.y, box.minY, box.maxY);
+      const dx = d.x - cx, dy = d.y - cy;
+      return dx * dx + dy * dy < d.r * d.r;
+    }
+
+    function updateDrops(dt) {
+      cloudTimer += dt;
+      const spawnRate = 0.19 / clamp(level.rainAmount, 1, 12);
+      while (cloudTimer > spawnRate) {
+        cloudTimer -= spawnRate;
+        spawnDrop();
+      }
+
+      for (const d of drops) {
+        d.life -= dt;
+        d.vy += (level.gravity || 850) * .35 * dt;
+        d.vx += (level.wind || 0) * .14 * dt;
+        d.x += d.vx * dt;
+        d.y += d.vy * dt;
+
+        for (const o of bodies) {
+          if (d.hit) break;
+          if (!dropHitsBody(d, o)) continue;
+          if (o.type === 'fruit') {
+            o.hp -= 1;
+            d.hit = true;
+            playSfx('hurt');
+          } else if (o.type === 'bumper') {
+            const dx = d.x - o.x, dy = d.y - o.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const nx = dx / dist, ny = dy / dist;
+            const dot = d.vx * nx + d.vy * ny;
+            d.vx = d.vx - 2 * dot * nx;
+            d.vy = d.vy - 2 * dot * ny;
+            d.vx *= 1.05; d.vy *= 1.05;
+            d.x = o.x + nx * (o.w/2 + d.r + 2);
+            d.y = o.y + ny * (o.w/2 + d.r + 2);
+            playSfx('bounce');
+          } else {
+            d.hit = true;
+            if (o.body !== 'static') {
+              o.vx += d.vx * .015;
+              o.vy += d.vy * .01;
+              o.av += (Math.random() - .5) * 14;
+            }
+          }
+        }
+
+        if (d.y > GROUND_Y) d.hit = true;
+      }
+      drops = drops.filter(d => !d.hit && d.life > 0 && d.y < H + 90 && d.x > -120 && d.x < W + 120);
+    }
+
+    function updateTest(dt) {
+      elapsed += dt;
+      integrateBodies(dt);
+      updateDrops(dt);
+      const fruits = bodies.filter(o => o.type === 'fruit');
+      if (fruits.some(f => f.hp <= 0) && !resultText) {
+        resultText = 'A fruit got melted. Shelter failed.';
+        playSfx('lose');
+        setTimeout(() => stopTest(false), 850);
+      }
+      if (elapsed >= level.surviveSeconds && !resultText) {
+        resultText = 'All fruits survived the storm!';
+        playSfx('win');
+        setTimeout(() => stopTest(true), 850);
+      }
+    }
+
+    function drawBackground() {
+      const src = assets.bgSrc || defaults.bg;
+      const img = getImage(src);
+      if (img && img.loaded) ctx.drawImage(img, 0, 0, W, H);
+      else {
+        ctx.fillStyle = '#83bfff'; ctx.fillRect(0,0,W,H);
+        ctx.fillStyle = '#4e743e'; ctx.fillRect(0,GROUND_Y,W,H-GROUND_Y);
+      }
+      ctx.fillStyle = 'rgba(0,0,0,.17)';
+      ctx.fillRect(0, GROUND_Y + 16, W, H - GROUND_Y - 16);
+    }
+
+    function drawObject(o) {
+      const isCircle = o.type === 'fruit' || o.type === 'bumper';
+      const src = objectImgSrc(o);
+      const img = getImage(src);
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      ctx.rotate(isCircle ? 0 : degToRad(o.r || 0));
+
+      if (img && img.loaded) {
+        ctx.drawImage(img, -o.w/2, -o.h/2, o.w, o.h);
+      } else {
+        ctx.fillStyle = o.type === 'fruit' ? '#ff9f29' : o.type === 'metal' ? '#7b8491' : o.type === 'bumper' ? '#bd59ff' : '#9a6337';
+        if (isCircle) { ctx.beginPath(); ctx.arc(0,0,o.w/2,0,Math.PI*2); ctx.fill(); }
+        else ctx.fillRect(-o.w/2, -o.h/2, o.w, o.h);
+      }
+
+      if (mode === 'edit' && o.body === 'static' && o.type !== 'fruit') {
+        ctx.fillStyle = 'rgba(0,0,0,.45)';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('ANCHOR', 0, 4);
+      }
+
+      if (o.id === selectedId && mode === 'edit') {
+        ctx.strokeStyle = '#ffd45a';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 5]);
+        if (isCircle) {
+          ctx.beginPath(); ctx.arc(0,0,o.w/2 + 5,0,Math.PI*2); ctx.stroke();
+        } else {
+          ctx.strokeRect(-o.w/2 - 5, -o.h/2 - 5, o.w + 10, o.h + 10);
+        }
+      }
+
+      if (mode === 'test' && o.type === 'fruit') {
+        const r = o.w / 2;
+        ctx.fillStyle = 'rgba(0,0,0,.48)';
+        ctx.fillRect(-26, r + 7, 52, 7);
+        ctx.fillStyle = '#ffdf59';
+        ctx.fillRect(-26, r + 7, 52 * clamp(o.hp / 3, 0, 1), 7);
+      }
+      ctx.restore();
+    }
+
+    function drawRain() {
+      const acidImg = getImage(defaults.acid);
+      for (const d of drops) {
+        ctx.save();
+        ctx.translate(d.x, d.y);
+        ctx.rotate(Math.atan2(d.vy, d.vx) + Math.PI / 2);
+        if (acidImg && acidImg.loaded) {
+          const s = d.r * 3.1;
+          ctx.drawImage(acidImg, -s / 2, -s / 2, s, s);
+        } else {
+          ctx.fillStyle = '#80ff65';
+          ctx.shadowColor = '#80ff68';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, d.r * .75, d.r * 1.45, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    function drawGhost() {
+      if (mode !== 'edit' || tool === 'select') return;
+      const obj = makeObj(tool, mouse.x, mouse.y);
+      ctx.save();
+      ctx.globalAlpha = .55;
+      drawObject(obj);
+      ctx.restore();
+    }
+
+    function startTest() {
+      const fruitCount = level.objects.filter(o => o.type === 'fruit').length;
+      if (fruitCount < 1) return toast('Place at least one fruit first');
+      mode = 'test';
+      selectedId = null;
+      drops = [];
+      elapsed = 0;
+      cloudTimer = 0;
+      resultText = '';
+      level.surviveSeconds = Number(ui.timeInput.value);
+      level.rainAmount = Number(ui.rainInput.value);
+      level.wind = Number(ui.windInput.value);
+      level.gravity = Number(ui.gravityInput.value);
+      bodies = level.objects.map(o => {
+        const b = JSON.parse(JSON.stringify(o));
+        b.vx = 0; b.vy = 0; b.av = (b.type === 'fruit' || b.type === 'bumper') ? 0 : (Math.random() - .5) * 5;
+        if (b.type === 'fruit') { b.hp = 3; b.body = 'dynamic'; }
+        if (!b.body) b.body = 'dynamic';
+        return b;
+      });
+      ui.editBtn.classList.remove('active');
+      ui.testBtn.classList.add('active');
+      ui.modePill.textContent = 'Physics Storm Test';
+      startMusic();
+      playSfx('start');
+    }
+
+    function stopTest(win) {
+      if (mode === 'edit') return;
+      mode = 'edit';
+      drops = [];
+      bodies = [];
+      ui.editBtn.classList.add('active');
+      ui.testBtn.classList.remove('active');
+      ui.modePill.textContent = 'Editor Mode';
+      stopMusic();
+      if (typeof win === 'boolean') toast(win ? 'Win!' : 'Failed');
+    }
+
+    ui.testBtn.addEventListener('click', () => mode === 'test' ? stopTest() : startTest());
+    ui.editBtn.addEventListener('click', () => stopTest());
+
+    function serialize() {
+      return JSON.stringify({
+        version: 2,
+        level: {
+          surviveSeconds: Number(ui.timeInput.value),
+          rainAmount: Number(ui.rainInput.value),
+          wind: Number(ui.windInput.value),
+          gravity: Number(ui.gravityInput.value),
+          objects: level.objects.map(o => ({...o}))
+        },
+        assets: { bgSrc: assets.bgSrc, musicSrc: assets.musicSrc },
+        editor: { nextFruitImgSrc, nextPropImgSrc, fruitCounter }
+      }, null, 2);
+    }
+
+    function restore(data) {
+      level = data.level || level;
+      level.objects = (level.objects || []).map(o => ({
+        id: o.id || uid(),
+        type: o.type || 'crate',
+        x: o.x || W/2, y: o.y || H/2,
+        w: o.w || 70, h: o.h || 70,
+        r: o.r || 0,
+        vx: 0, vy: 0, av: 0,
+        body: o.type === 'fruit' ? 'dynamic' : (o.body || 'dynamic'),
+        hp: o.type === 'fruit' ? 3 : (o.hp || 100),
+        mass: o.mass || 1,
+        skin: o.skin || 0,
+        imgSrc: o.imgSrc || ''
+      }));
+      assets.bgSrc = data.assets?.bgSrc || '';
+      assets.musicSrc = data.assets?.musicSrc || '';
+      nextFruitImgSrc = data.editor?.nextFruitImgSrc || '';
+      nextPropImgSrc = data.editor?.nextPropImgSrc || '';
+      fruitCounter = data.editor?.fruitCounter || level.objects.filter(o => o.type === 'fruit').length;
+      ui.timeInput.value = level.surviveSeconds || 25;
+      ui.rainInput.value = level.rainAmount || 5;
+      ui.windInput.value = level.wind || 0;
+      ui.gravityInput.value = level.gravity || 850;
+      selectedId = null;
+      stopMusic();
+      if (assets.musicSrc) {
+        music = new Audio(assets.musicSrc);
+        music.loop = true;
+      } else music = null;
+    }
+
+    ui.exportBtn.addEventListener('click', () => { ui.levelText.value = serialize(); toast('Exported JSON'); });
+    ui.importBtn.addEventListener('click', () => {
+      try { restore(JSON.parse(ui.levelText.value)); toast('Imported level'); }
+      catch (err) { toast('Bad JSON'); }
+    });
+    ui.saveLocalBtn.addEventListener('click', () => { localStorage.setItem('fruitShelterLabSaveV2', serialize()); toast('Saved locally'); });
+    ui.loadLocalBtn.addEventListener('click', () => {
+      const raw = localStorage.getItem('fruitShelterLabSaveV2') || localStorage.getItem('fruitShelterLabSave');
+      if (!raw) return toast('No local save yet');
+      restore(JSON.parse(raw));
+      toast('Loaded local save');
+    });
+    ui.clearBtn.addEventListener('click', () => { level.objects = []; selectedId = null; drops = []; bodies = []; toast('Cleared'); });
+
+    ui.sampleBtn.addEventListener('click', () => {
+      level.objects = [
+        { id: uid(), type: 'fruit', x: 430, y: 390, w: 58, h: 58, r: 0, hp: 3, body: 'dynamic', mass: .65, skin: 0, imgSrc: '' },
+        { id: uid(), type: 'fruit', x: 530, y: 390, w: 58, h: 58, r: 0, hp: 3, body: 'dynamic', mass: .65, skin: 2, imgSrc: '' },
+        { id: uid(), type: 'crate', x: 370, y: 330, w: 76, h: 76, r: 0, body: 'dynamic', mass: 1, hp: 100, imgSrc: '' },
+        { id: uid(), type: 'crate', x: 590, y: 330, w: 76, h: 76, r: 0, body: 'dynamic', mass: 1, hp: 100, imgSrc: '' },
+        { id: uid(), type: 'plank', x: 480, y: 280, w: 250, h: 28, r: -7, body: 'dynamic', mass: 1.2, hp: 100, imgSrc: '' },
+        { id: uid(), type: 'metal', x: 480, y: 230, w: 210, h: 26, r: 8, body: 'static', mass: 2, hp: 100, imgSrc: '' },
+        { id: uid(), type: 'bumper', x: 720, y: 275, w: 62, h: 62, r: 0, body: 'static', mass: 1, hp: 100, imgSrc: '' }
+      ];
+      fruitCounter = 3;
+      selectedId = null;
+      toast('Physics sample loaded');
+    });
+
+    function readFileAsDataURL(file, cb) {
+      const reader = new FileReader();
+      reader.onload = () => cb(reader.result);
+      reader.readAsDataURL(file);
+    }
+
+    ui.fruitUpload.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      readFileAsDataURL(file, src => {
+        const s = selected();
+        if (s && s.type === 'fruit') { s.imgSrc = src; toast('Selected fruit image loaded'); }
+        else { nextFruitImgSrc = src; toast('New fruit image loaded'); }
+      });
+    });
+
+    ui.propUpload.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      readFileAsDataURL(file, src => {
+        const s = selected();
+        if (s && s.type !== 'fruit') { s.imgSrc = src; toast('Selected prop image loaded'); }
+        else { nextPropImgSrc = src; toast('New prop image loaded'); }
+      });
+    });
+
+    ui.bgUpload.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      readFileAsDataURL(file, src => { assets.bgSrc = src; toast('Background loaded'); });
+    });
+
+    ui.musicUpload.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      readFileAsDataURL(file, src => {
+        assets.musicSrc = src;
+        music = new Audio(src);
+        music.loop = true;
+        toast('Music loaded');
+      });
+    });
+
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function playSfx(kind) {
+      const src = defaults.sfx && defaults.sfx[kind];
+      if (src) {
+        try {
+          const a = new Audio(src);
+          a.volume = 0.55;
+          a.play().catch(() => {});
+          return;
+        } catch (err) {}
+      }
+      try {
+        const ac = ensureAudio();
+        const now = ac.currentTime;
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        const freq = { place: 420, delete: 150, hurt: 90, bounce: 620, win: 780, lose: 120, start: 330 }[kind] || 300;
+        osc.type = kind === 'hurt' || kind === 'lose' ? 'sawtooth' : 'square';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq * (kind === 'win' ? 1.7 : .55)), now + .12);
+        gain.gain.setValueAtTime(.05, now);
+        gain.gain.exponentialRampToValueAtTime(.001, now + .16);
+        osc.connect(gain).connect(ac.destination);
+        osc.start(now); osc.stop(now + .18);
+      } catch (err) {}
+    }
+
+    function startMusic() {
+      stopMusic();
+      const musicSrc = assets.musicSrc || defaults.music;
+      if (musicSrc) {
+        try {
+          music = new Audio(musicSrc);
+          music.loop = true;
+          music.volume = 0.55;
+          music.currentTime = 0;
+          music.play().catch(() => startProceduralMusic());
+          return;
+        } catch (err) {}
+      }
+      startProceduralMusic();
+    }
+
+    function startProceduralMusic() {
+      try {
+        const ac = ensureAudio();
+        const notes = [220, 277, 330, 415, 330, 277];
+        let step = 0;
+        musicInterval = setInterval(() => {
+          if (mode !== 'test') return;
+          const now = ac.currentTime;
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(notes[step++ % notes.length], now);
+          gain.gain.setValueAtTime(.022, now);
+          gain.gain.exponentialRampToValueAtTime(.001, now + .22);
+          osc.connect(gain).connect(ac.destination);
+          osc.start(now); osc.stop(now + .24);
+        }, 210);
+      } catch (err) {}
+    }
+
+    function stopMusic() {
+      if (music) music.pause();
+      if (musicInterval) clearInterval(musicInterval);
+      musicInterval = null;
+    }
+
+    function frame(now) {
+      const dt = Math.min((now - last) / 1000, .033);
+      last = now;
+      if (mode === 'test') updateTest(dt);
+
+      drawBackground();
+      const list = mode === 'test' ? bodies : level.objects;
+      list.forEach(drawObject);
+      drawGhost();
+      drawRain();
+
+      if (mode === 'test') {
+        const fruits = bodies.filter(o => o.type === 'fruit');
+        const alive = fruits.filter(f => f.hp > 0).length;
+        const remain = Math.max(0, level.surviveSeconds - elapsed).toFixed(1);
+        ui.statusPill.textContent = `Survive: ${remain}s | Fruits: ${alive}/${fruits.length} | Drops: ${drops.length}`;
+      } else {
+        const s = selected();
+        const fruitCount = level.objects.filter(o => o.type === 'fruit').length;
+        ui.statusPill.textContent = s ? `Selected: ${s.type} | ${s.body || 'dynamic'} | x ${Math.round(s.x)}, y ${Math.round(s.y)}` : `Fruits: ${fruitCount} | Place pieces, then test.`;
+      }
+
+      if (resultText) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,.55)';
+        ctx.fillRect(0,0,W,H);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 34px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(resultText, W/2, H/2);
+        ctx.restore();
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    ui.sampleBtn.click();
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
